@@ -1,11 +1,18 @@
 #CH341 SPI adapter
 
-# the following didn't work
-# SUBSYSTEM=="usb", ATTR{idVendor}=="1a86", ATTR{idProduct}=="5512", MODE="0666", OWNER="<kevinh>"
 # This worked but too heavyhanded
-# SUBSYSTEM=="gpio", KERNEL=="gpiochip*", ACTION=="add", PROGRAM="/bin/sh -c 'chown root:gpio /dev/gpiochip* /sys/class/gpio/export /sys/class/gpio/unexport ; chmod 220 /sys/class/gpio/export /sys/class/gpio/unexport'"
+#SUBSYSTEM=="gpio", KERNEL=="gpiochip*", ACTION=="add", PROGRAM="/bin/sh -c 'chown root:plugdev /dev/gpiochip* /sys/class/gpio/export /sys/class/gpio/unexport ; chmod 220 /sys/class/gpio/export /sys/class/gpio/unexport'"
 
-SUBSYSTEM=="gpio", KERNEL=="gpiochip*", GROUP="gpio", MODE="0660"
-SUBSYSTEM=="spidev", KERNEL=="spidev*", GROUP="gpio", MODE="0660"
+#https://github.com/dimich-dmb/spi-ch341-usb#using-spi-slaves
+# echo spidev > /sys/class/spi_master/spi0/spi0.1/driver_override
+# echo spi0.1 > /sys/bus/spi/drivers/spidev/bind
+# for i in /sys/bus/usb/drivers/spi-ch341-usb/*/spi_master/spi*/spi*.*; do echo spidev > $i/driver_override; echo $(basename $i) > /sys/bus/spi/drivers/spidev/bind; done
+# done in device_add.h and device_remove.sh
+
+SUBSYSTEM=="gpio", KERNEL=="gpiochip*", GROUP="plugdev", MODE="0660"
+SUBSYSTEM=="spidev", KERNEL=="spidev*", GROUP="plugdev", MODE="0660"
+
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ACTION=="add", RUN+="/bin/device_spidev.sh ADD $attr{idVendor} $attr{idProduct}"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ACTION=="remove", RUN+="/bin/device_spidev.sh REMOVE $attr{idVendor} $attr{idProduct}"
 
 
