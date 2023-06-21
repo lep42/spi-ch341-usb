@@ -3,9 +3,14 @@
 .#*
 *.swp
 *.symvers
+*.mod
 *.mod.c
 *.o
 *.order
 *.ko
 .temp_versions/
 *.cmd
+spidev_test
+spidev_fdx
+gpio_list
+ch341a_gpio
