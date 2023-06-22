@@ -4,6 +4,13 @@ The driver can be used with CH341A USB to UART/I2C/SPI adapter boards to connect
 
 Additionally, CH341A data pins that are not used for the SPI interface can be configured as **GPIO** pins. The driver can generate **software interrupts** for all input pins. **One input** pin can be connected with the CH341A interrupt pin to generate **hardware interrupts**. However, since USB is an asynchronous communication system, it is not possible to guarantee exact timings for GPIOs and interrupts.
 
+Device tested 
+![top](./doc/ch341a_top.png)
+![bottom](./doc/ch341a_bottom.png)
+
+Pinout
+![pinout](./directory_1/directory_2/.../directory_n/plot.png)
+
 ## Limitations of the SPI interface
 
 The **SPI hardware interface** implementation is limited to
