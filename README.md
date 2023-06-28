@@ -4,12 +4,56 @@ The driver can be used with CH341A USB to UART/I2C/SPI adapter boards to connect
 
 Additionally, CH341A data pins that are not used for the SPI interface can be configured as **GPIO** pins. The driver can generate **software interrupts** for all input pins. **One input** pin can be connected with the CH341A interrupt pin to generate **hardware interrupts**. However, since USB is an asynchronous communication system, it is not possible to guarantee exact timings for GPIOs and interrupts.
 
-Device tested 
-![top](./doc/ch341a_top.png)
-![bottom](./doc/ch341a_bottom.png)
+## Device tested 
+<img src="./doc/ch341a_top.png" width="30%"/>
 
-Pinout
-![pinout](./directory_1/directory_2/.../directory_n/plot.png)
+<img src="./doc/ch341a_bottom.png" width="30%"/>
+
+## Board pinout
+<img src="./doc/ch341a_pinout.png" width="40%"/>
+
+## Datasheet
+CH341A [datasheet ch341ds1.pdf](./doc/ch341ds1.pdf) in pdf format.
+
+## CH341 Mode
+The EPP/MEM mode can be forced pulling the ACT# pin low to ground with a 2K resistor. The advantage
+is that I²C OR SPI pins can still be used in that case.
+
+SCL and SDA conditions Mode USB-PID
+SDA and SCL open UART; RS232 5523 hex
+SDA low, SCL open EPP/MEM/I²C/SPI 5512 hex
+SDA with SCL shortened USB-Printer 5584 hex (ACT# pin high)
+
+## USB ID definitions
+
+For each configuration the USB VendorId is 1a86 hex.
+However, for each type of function the product_id is different and this
+functions are defined by the pin level.
+
+### EPP/MEM/I²C/SPI -> ProductId: 5512 hex
+
+|  Pin  |     Name    | Level   |
+| ----- | ----------- | ------- |
+|     1 | ACT#        | low     |
+|    19 | TEN#        | high    |
+| 23-24 | SDA and SCL | opened  |
+
+### UART,RS232 -> ProductId: 5523 hex
+
+|  Pin  |     Name    | Level   |
+| ----- | ----------- | ------- |
+|     1 | ACT#        | high    | 
+|    19 | TEN#        | low     |
+| 23-24 | SDA and SCL | open    |
+
+### USB-Printer -> ProductId: 5584 hex
+
+|  Pin  |     Name    | Level   |
+| ----- | ----------- | ------- |
+|     1 | ACT#        | high    | 
+|    19 | TEN#        | high    | 
+| 23-24 | SDA and SCL | shorted |
+
 
 ## Limitations of the SPI interface
 
