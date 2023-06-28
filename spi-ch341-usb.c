@@ -152,7 +152,6 @@ struct ch341_pin_config ch341_board_config[] =
     {   1, CH341_PIN_MODE_CS , "cs1"     , 0 }, // used as a chip select by default
     {   2, CH341_PIN_MODE_CS , "cs2"     , 0 }, // used as a chip select by default
     // {   3, CH341_PIN_MODE_IN , "sck"     , 0 }, // expose to userspace to allow readonly access (for hardware debugging)
-
     {   4, CH341_PIN_MODE_IN , "gpio4"   , 0 }, // used as input with hardware IRQ
     // {   5, CH341_PIN_MODE_IN , "mosi"    , 0 }, // expose to userspace to allow readonly access (for hardware debugging)
     {   6, CH341_PIN_MODE_IN , "gpio6"   , 0 }, // used as input (only)
@@ -167,7 +166,7 @@ struct ch341_pin_config ch341_board_config[] =
     {   14, CH341_PIN_MODE_IN , "autofd" , 0 },
     {   15, CH341_PIN_MODE_IN , "addr"   , 0 },
 
-    {   16, CH341_PIN_MODE_OUT, "ini"  , 0 },
+    {   16, CH341_PIN_MODE_OUT, "ini"    , 0 },
     {   17, CH341_PIN_MODE_OUT, "write"  , 0 },
     {   18, CH341_PIN_MODE_OUT, "scl"    , 0 },
     {   19, CH341_PIN_MODE_OUT, "sda"    , 0 } // Example code says this is GPIO 29 but I think that is a typo (leaving out for now)
@@ -235,6 +234,7 @@ struct ch341_device
     int               irq_hw;                             // IRQ for GPIO with hardware IRQ (default -1)
 };
 
+static uint bus_instance = CH341_SPI_BUS_NUM;
 // ----- variables configurable during runtime ---------------------------
 
 static uint poll_period = CH341_POLL_PERIOD_MS;       // module parameter poll period
@@ -292,7 +292,7 @@ static int ch341_cfg_probe (struct ch341_device* ch341_dev)
         {
             // if pin is CS signal, set SPI slave device configuration
             ch341_spi_devices[ch341_dev->slave_num] = ch341_spi_device_template;
-            ch341_spi_devices[ch341_dev->slave_num].bus_num      = CH341_SPI_BUS_NUM;
+            ch341_spi_devices[ch341_dev->slave_num].bus_num      = bus_instance++;
             ch341_spi_devices[ch341_dev->slave_num].mode         = CH341_SPI_MODE;
             ch341_spi_devices[ch341_dev->slave_num].chip_select  = cfg->bitNum;
 
@@ -630,9 +630,10 @@ static int ch341_spi_set_cs (struct spi_device *spi, bool active)
     struct ch341_device* ch341_dev;
     int result;
     uint32_t old_gpio;
+    bool pull_down = active;
     
     CHECK_PARAM_RET (spi, -EINVAL);
-    CHECK_PARAM_RET (ch341_dev = ch341_spi_maser_to_dev(spi->master), -EINVAL);
+    CHECK_PARAM_RET (ch341_dev = ch341_spi_master_to_dev(spi->master), -EINVAL);
 
     // DEV_DBG (CH341_IF_ADDR, "active %s", active ? "true" : "false");
 
@@ -642,10 +643,15 @@ static int ch341_spi_set_cs (struct spi_device *spi, bool active)
                  spi->chip_select, CH341_SPI_MAX_NUM_DEVICES-1);
         return -EINVAL;
     }
+    if (spi->mode & SPI_NO_CS)
+        return CH341_OK;
+
+    if (spi->mode & SPI_CS_HIGH)
+        pull_down = !pull_down;
     
     old_gpio = ch341_dev->gpio_io_data;
 
-    if (active)
+    if (pull_down)
         ch341_dev->gpio_io_data &= ~cs_bits[spi->chip_select];
     else
         ch341_dev->gpio_io_data |= cs_bits[spi->chip_select];
@@ -788,7 +794,7 @@ static int ch341_spi_transfer_low(struct spi_master *master,
                                   struct spi_device *spi, 
                                   struct spi_transfer* t)
 {
-    struct ch341_device* ch341_dev = ch341_spi_maser_to_dev(spi->master);
+    struct ch341_device* ch341_dev = ch341_spi_master_to_dev(spi->master);
     const uint8_t* tx;
     uint8_t* rx;
     bool lsb; 
@@ -896,6 +902,7 @@ static int spi_transfer_one_message(struct spi_master *master,
 	msg->status = ret;
 
 	spi_finalize_current_message(master);
+    ch341_set_cs(msg->spi, false);
     mutex_unlock (&ch341_lock);
 
     if(ret > 0) // transfer_one_message does not want a count as a result, just 0 for success
@@ -906,15 +913,15 @@ static int spi_transfer_one_message(struct spi_master *master,
 }
 
 
-static int ch341_spi_probe (struct ch341_device* ch341_dev)
+static int ch341_spi_probe(struct ch341_device* ch341_dev)
 {
-    int bus = 0;
+    int bus = -1;
     int result;
     int i;
 
-    CHECK_PARAM_RET (ch341_dev, -EINVAL);
+    CHECK_PARAM_RET(ch341_dev, -EINVAL);
     
-    DEV_DBG (CH341_IF_ADDR, "start");
+    DEV_DBG(CH341_IF_ADDR, "start");
 
     // allocate a new SPI master with a pointer to ch341_device as device data
     ch341_dev->master = spi_alloc_master(CH341_IF_ADDR, sizeof(struct ch341_device*));
@@ -925,12 +932,12 @@ static int ch341_spi_probe (struct ch341_device* ch341_dev)
     }
     
     // save the pointer to ch341_dev in the SPI master device data field
-    ch341_spi_maser_to_dev (ch341_dev->master) = ch341_dev;
+    ch341_spi_master_to_dev (ch341_dev->master) = ch341_dev;
 
     // set SPI master configuration
-    ch341_dev->master->bus_num = -1;
+    ch341_dev->master->bus_num = bus;
     ch341_dev->master->num_chipselect = CH341_SPI_MAX_NUM_DEVICES;
-    ch341_dev->master->mode_bits = SPI_MODE_3 | SPI_LSB_FIRST;
+    ch341_dev->master->mode_bits = SPI_MODE_3 | SPI_LSB_FIRST | SPI_CS_HIGH;
     ch341_dev->master->flags = SPI_MASTER_MUST_RX | SPI_MASTER_MUST_TX;
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(5,0,0)
     ch341_dev->master->bits_per_word_mask = SPI_BIT_MASK(8);
@@ -944,7 +951,7 @@ static int ch341_spi_probe (struct ch341_device* ch341_dev)
     ch341_dev->master->min_speed_hz = CH341_SPI_MIN_FREQ;
 
     // register the new master
-    if ((result = spi_register_master (ch341_dev->master)))
+    if ((result = spi_register_master(ch341_dev->master)))
     {
         DEV_ERR(CH341_IF_ADDR, "could not register SPI master");
         spi_master_put(ch341_dev->master);
@@ -952,7 +959,7 @@ static int ch341_spi_probe (struct ch341_device* ch341_dev)
         ch341_dev->master = 0;
         return result;
     }
-
+DEV_DBG (CH341_IF_ADDR, "ch341_dev->slave_num=%d", ch341_dev->slave_num);
     // create SPI slaves
     for (i = 0; i < ch341_dev->slave_num; i++)
     {
@@ -1543,7 +1550,7 @@ static int ch341_gpio_probe (struct ch341_device* ch341_dev)
         {
             // add and export the GPIO pin
             if ((result = gpio_request(gpio->base + j, ch341_board_config[i].name)) ||
-                (result = gpio_export (gpio->base + j, ch341_board_config[i].pin != 21 ? true : false)))
+                (result = gpio_export (gpio->base + j, ch341_board_config[i].bitNum != 21 ? true : false)))
             {
                 DEV_ERR (CH341_IF_ADDR, "failed to export GPIO %s: %d", 
                          ch341_board_config[i].name, result);
@@ -1782,7 +1789,7 @@ module_usb_driver(ch341_usb_driver);
 
 MODULE_ALIAS("spi:ch341");
 MODULE_AUTHOR("Gunar Schorcht <gunar@schorcht.net>");
-MODULE_DESCRIPTION("spi-ch341-usb driver v1.0.1");
+MODULE_DESCRIPTION("spi-ch341-usb driver v1.0.2");
 MODULE_LICENSE("GPL");
 
 module_param(poll_period, uint, 0644);
