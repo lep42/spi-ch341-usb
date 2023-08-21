@@ -135,7 +135,7 @@ on Debian based systems.
 The driver can be compiled with following commands:
 
 ```
-git clone https://github.com/gschorcht/spi-ch341-usb.git
+git clone https://github.com/lep42/spi-ch341-usb.git
 cd spi-ch341-usb
 make
 
@@ -197,29 +197,64 @@ GPIO configuration as well their polling rate can be changed according to your r
 To change **GPIO configuration**, simply change the variable ```ch341_board_config``` that should be self-explaining. This variable contains structured entries for each configurable pin. Each entry consists of the pin number, the GPIO mode used for the pin, the name used for the GPIO in the Linux host and a flag whether the pin is connected with the CH341A hardware interrupt pin **INT**. Default configuration is:
 
 ```
-struct ch341_pin_config ch341_board_config[CH341_GPIO_NUM_PINS] = 
+struct ch341_pin_config ch341_board_config[] = 
 {
-    // pin  GPIO mode           GPIO name   hwirq
-    {   15, CH341_PIN_MODE_CS , "cs0"     , 0 }, // used as CS0
-    {   16, CH341_PIN_MODE_CS , "cs1"     , 0 }, // used as CS1
-    {   17, CH341_PIN_MODE_CS , "cs2"     , 0 }, // used as CS2
-    {   19, CH341_PIN_MODE_IN , "gpio4"   , 1 }, // used as input with hardware IRQ
-    {   21, CH341_PIN_MODE_IN , "gpio5"   , 0 }  // used as input
+    // bitnum  GPIO mode           GPIO name   hwirq
+    {   0, CH341_PIN_MODE_CS , "cs0"     , 0 }, // used as a chip select by default
+    {   1, CH341_PIN_MODE_CS , "cs1"     , 0 }, // used as a chip select by default
+    {   2, CH341_PIN_MODE_CS , "cs2"     , 0 }, // used as a chip select by default
+    // {   3, CH341_PIN_MODE_IN , "sck"     , 0 }, // expose to userspace to allow readonly access (for hardware debugging)
+    {   4, CH341_PIN_MODE_IN , "gpio4"   , 0 }, // used as input with hardware IRQ
+    // {   5, CH341_PIN_MODE_IN , "mosi"    , 0 }, // expose to userspace to allow readonly access (for hardware debugging)
+    {   6, CH341_PIN_MODE_IN , "gpio6"   , 0 }, // used as input (only)
+    // {   7, CH341_PIN_MODE_IN , "miso"    , 0 }, // expose to userspace to allow readonly access (for hardware debugging)
+
+    {   8, CH341_PIN_MODE_IN , "err"     , 0 },
+    {   9, CH341_PIN_MODE_IN , "pemp"    , 0 },
+    {   10, CH341_PIN_MODE_IN , "int"    , 1 },
+    {   11, CH341_PIN_MODE_IN , "slct"   , 0 },
+    
+    {   13, CH341_PIN_MODE_IN , "wait"   , 0 },
+    {   14, CH341_PIN_MODE_IN , "autofd" , 0 },
+    {   15, CH341_PIN_MODE_IN , "addr"   , 0 },
+
+    {   16, CH341_PIN_MODE_OUT, "ini"    , 0 },
+    {   17, CH341_PIN_MODE_OUT, "write"  , 0 },
+    {   18, CH341_PIN_MODE_OUT, "scl"    , 0 },
+    {   19, CH341_PIN_MODE_OUT, "sda"    , 0 } // Example code says this is GPIO 29 but I think that is a typo (leaving out for now)
 };
+
 ```
 In this configuration, pins 15 to 17 are used as CS signals while pin 19 and 21 are used as inputs. Additionally, pin 19 is connected with the CH341A hardware interrupt pin **INT** that produces hardware interrupts on rising edge of the signal connected to pin 19.
 
 To define a pin as output, simply change the GPIO mode to ```CH341_PIN_MODE_OUT```. For example, if you would like to configure only one CS signal and the other CS signal pins as GPIO outputs, the configuration could look like the following:
 
 ```
-struct ch341_pin_config ch341_board_config[CH341_GPIO_NUM_PINS] = 
+struct ch341_pin_config ch341_board_config[] = 
 {
-    // pin  GPIO mode           GPIO name   hwirq
-    {   15, CH341_PIN_MODE_CS , "cs0"     , 0 }, // used as CS0
-    {   16, CH341_PIN_MODE_OUT, "gpio2"   , 0 }, // used as output
-    {   17, CH341_PIN_MODE_OUT, "gpio3"   , 0 }, // used as output
-    {   19, CH341_PIN_MODE_IN , "gpio4"   , 1 }, // used as input with hardware IRQ
-    {   21, CH341_PIN_MODE_IN , "gpio5"   , 0 }  // used as input
+    // bitnum  GPIO mode           GPIO name   hwirq
+    {   0, CH341_PIN_MODE_CS , "cs0"     , 0 }, // used as a chip select by default
+    {   1, CH341_PIN_MODE_CS , "cs1"     , 0 }, // used as a chip select by default
+    {   2, CH341_PIN_MODE_CS , "cs2"     , 0 }, // used as a chip select by default
+    // {   3, CH341_PIN_MODE_IN , "sck"     , 0 }, // expose to userspace to allow readonly access (for hardware debugging)
+    {   4, CH341_PIN_MODE_IN , "gpio4"   , 0 }, // used as input with hardware IRQ
+    // {   5, CH341_PIN_MODE_IN , "mosi"    , 0 }, // expose to userspace to allow readonly access (for hardware debugging)
+    {   6, CH341_PIN_MODE_IN , "gpio6"   , 0 }, // used as input (only)
+    // {   7, CH341_PIN_MODE_IN , "miso"    , 0 }, // expose to userspace to allow readonly access (for hardware debugging)
+
+    {   8, CH341_PIN_MODE_IN , "err"     , 0 },
+    {   9, CH341_PIN_MODE_IN , "pemp"    , 0 },
+    {   10, CH341_PIN_MODE_IN , "int"    , 1 },
+    {   11, CH341_PIN_MODE_IN , "slct"   , 0 },
+    
+    {   13, CH341_PIN_MODE_IN , "wait"   , 0 },
+    {   14, CH341_PIN_MODE_IN , "autofd" , 0 },
+    {   15, CH341_PIN_MODE_IN , "addr"   , 0 },
+
+    {   16, CH341_PIN_MODE_OUT, "ini"    , 0 },
+    {   17, CH341_PIN_MODE_OUT, "write"  , 0 },
+    {   18, CH341_PIN_MODE_OUT, "scl"    , 0 },
+    {   19, CH341_PIN_MODE_OUT, "sda"    , 0 } // Example code says this is GPIO 29 but I think that is a typo (leaving out for now)
 };
 ```
 
@@ -321,7 +356,7 @@ E.g. flash IC is attached to bus 0 chip 0 (spi0.0):
 # echo spi0.0 > /sys/bus/spi/drivers/spi-nor/bind
 ```
 
-### Using GPIOs
+### Using GPIOs (obsolete)
 
 On systems with GPIO character device support (CONFIG_GPIO_CDEV) GPIO pins are available via ```/dev/gpiochipN``` character device.
 
